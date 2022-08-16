@@ -3,31 +3,39 @@ package org.devio.proj.jetpack.love
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.annotation.DrawableRes
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import org.devio.proj.jetpack.love.ui.theme.*
 
 class MainActivity : ComponentActivity() {
+    var currentLove: Love? by mutableStateOf(null)
+    var currentLovePageState by mutableStateOf(LovePageState.Closed)
+    var cardSize by mutableStateOf(IntSize(0, 0))
+    var fullSize by mutableStateOf(IntSize(0, 0))
+    var cardOffset by mutableStateOf(IntOffset(0, 0))
+
+    @ExperimentalMaterialApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -36,159 +44,253 @@ class MainActivity : ComponentActivity() {
             Scaffold(scaffoldState = scaffoldState,
                 modifier = Modifier.fillMaxSize(),
                 snackbarHost = { snackbarHostState ->
-                    SnackbarHost(
+                    SnackbarHost(/*note 弹框*/
                         modifier = Modifier
                             .fillMaxSize()
                             .wrapContentHeight(Alignment.CenterVertically)
                             .wrapContentWidth(Alignment.CenterHorizontally)
-                            .background(color = BlackDark),
+                                /*加入以下2行 否则想过类似Toast 无法看清*/
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(color = Color.White),
                         hostState = snackbarHostState,
                         snackbar = { snackbarData: SnackbarData ->
-                            Text(
-                                modifier = Modifier.padding(16.dp),
-                                text = snackbarData.message
-                            )
+                            Card {
+                                Text(
+                                    modifier = Modifier.padding(16.dp),
+                                    text = snackbarData.message
+                                )
+                            }
                         }
                     )
 
                 }) {
-                Column() {
+                Column(Modifier.onSizeChanged { fullSize = it }) {
                     //将NavBar挤下去
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .background(BackgroundWhite)
-                            .verticalScroll(rememberScrollState())
-                    ) {
+                    Column(Modifier.fillMaxWidth().weight(1f).background(BackgroundWhite)
+                        .verticalScroll(rememberScrollState()))  {
+                        //顶部tab
                         TopBar()
-
+                        SearchBar()
+                        CategoryBar()
+                        TopLovesArea(
+                            { cardSize = it },
+                            { love, offset ->
+                                currentLove = love
+                                currentLovePageState = LovePageState.Opening
+                                cardOffset = offset
+                            })
                     }
                     NavBar(coroutineScope, scaffoldState)
 
                 }
+
+                LoveDetailsPage(currentLove, currentLovePageState, cardSize, fullSize, cardOffset, {
+                    currentLovePageState = LovePageState.Closing
+                }, {
+                    currentLovePageState = LovePageState.Closed
+                })
             }
         }
 
     }
 }
 
+
+@ExperimentalMaterialApi
 @Composable
-fun TopBar() {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(28.dp, 28.dp, 28.dp, 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Image(
-            painterResource(R.drawable.avatar_rengwuxian), "头像",
-            Modifier
-                .clip(CircleShape)
-                .size(64.dp)
-        )
-        Column(
-            Modifier
-                .padding(start = 14.dp)
-                .weight(1f)
-        ) {
-            Text("欢迎回来！", fontSize = 14.sp, color = Gray)
-            Text("小朱", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        }
-        Surface(Modifier.clip(CircleShape), color = LightPink) {
-            Image(
-                painterResource(R.drawable.ic_notification_new), "通知",
-                Modifier
-                    .padding(10.dp)
-                    .size(32.dp)
-            )
-        }
-    }
-}
-
-@Composable/*底部导航Tab*/
-fun NavBar(coroutineScope: CoroutineScope, scaffoldState: ScaffoldState) {
-    Row(
-        modifier = Modifier//NavBar height 84 /左右水平间距 16 上下0
-            .background(Color.White)
-            .height(height = 84.dp)
-            .padding(horizontal = 16.dp, vertical = 0.dp),
-        verticalAlignment = Alignment.CenterVertically//上下居中
-    ) {
-        /*note 只能作为参数传递 子组件才能感受父组件RowScope的作用域 使用.weight 或者使用拓展函数wScope.NavItem*/
-        NavItem(
-            painterId = R.drawable.home,
-            contentDescription = "Home",
-            tint = Orange,
-            coroutineScope,
-            scaffoldState
-        )
-        NavItem(
-            painterId = R.drawable.movie,
-            contentDescription = "Movie",
-            tint = Gray,
-            coroutineScope,
-            scaffoldState
-        )
-        NavItem(
-            painterId = R.drawable.group,
-            contentDescription = "Group",
-            tint = Gray,
-            coroutineScope,
-            scaffoldState
-        )
-        NavItem(
-            painterId = R.drawable.shop,
-            contentDescription = "Shop",
-            tint = Gray,
-            coroutineScope,
-            scaffoldState
-        )
-        NavItem(
-            painterId = R.drawable.person,
-            contentDescription = "Person",
-            tint = Gray,
-            coroutineScope,
-            scaffoldState
-        )
-
-    }
-}
-
-@Composable
-fun RowScope.NavItem(
-    @DrawableRes painterId: Int,
-    contentDescription: String,
-    tint: Color,
-    coroutineScope: CoroutineScope,
-    scaffoldState: ScaffoldState
+fun LoveDetailsPage(
+    love: Love?,
+    pageState: LovePageState,
+    cardSize: IntSize,
+    fullSize: IntSize,
+    cardOffset: IntOffset,
+    onPageClosing: () -> Unit,
+    onPageClosed: () -> Unit
 ) {
-
-    /*为了有点击效果 图片外层套上Button 当然也可以用modifier中的属性*/
-    Button(
-        onClick = {
-            coroutineScope.launch {
-                scaffoldState.snackbarHostState.showSnackbar(
-                    message = contentDescription,
+    var animReady by remember { mutableStateOf(false) }
+    val background by animateColorAsState(
+        if (pageState > LovePageState.Closed) Color(0xfff8f8f8) else Color.White,
+        finishedListener = {
+            if (pageState == LovePageState.Closing) {
+                onPageClosed()
+                animReady = false
+            }
+        })
+    val cornerSize by animateDpAsState(if (pageState > LovePageState.Closed) 0.dp else 16.dp)
+    val paddingSize by animateDpAsState(if (pageState > LovePageState.Closed) 10.dp else 6.dp)
+    val size by animateIntSizeAsState(if (pageState > LovePageState.Closed) fullSize else cardSize)
+    val titleOuterPaddingHorizontal by animateDpAsState(if (pageState > LovePageState.Closed) 14.dp else 0.dp)
+    val titlePaddingHorizontal by animateDpAsState(if (pageState > LovePageState.Closed) 16.dp else 8.dp)
+    val titlePaddingTop by animateDpAsState(if (pageState > LovePageState.Closed) 18.dp else 12.dp)
+    val titlePaddingBottom by animateDpAsState(if (pageState > LovePageState.Closed) 16.dp else 8.dp)
+    val titleOffsetY by animateDpAsState(if (pageState > LovePageState.Closed) (-40).dp else 0.dp)
+    val titleFontSize by animateFloatAsState(if (pageState > LovePageState.Closed) 18f else 15f)
+    val titleFontWeight by animateIntAsState(if (pageState > LovePageState.Closed) 900 else 700)
+    val titleSpacing by animateDpAsState(if (pageState > LovePageState.Closed) 10.dp else 4.dp)
+    val subtitleFontSize by animateFloatAsState(if (pageState > LovePageState.Closed) 15f else 14f)
+    val badgeCornerSize by animateDpAsState(if (pageState > LovePageState.Closed) 15.dp else 10.dp)
+    val badgeWidth by animateDpAsState(if (pageState > LovePageState.Closed) 90.dp else 0.dp)
+    val badgeHeight by animateDpAsState(if (pageState > LovePageState.Closed) 66.dp else 0.dp)
+    val badgeBackground by animateColorAsState(
+        if (pageState > LovePageState.Closed) Color(0xfffa9e51) else Color(
+            0xfffef1e6
+        )
+    )
+    val badgeContentColor by animateColorAsState(
+        if (pageState > LovePageState.Closed) Color.White else Color(
+            0xfffa9e51
+        )
+    )
+    val imageCornerSize by animateDpAsState(if (pageState > LovePageState.Closed) 32.dp else 16.dp)
+    val imageRatio by animateFloatAsState(if (pageState > LovePageState.Closed) 1f else 1.35f)
+    val fullOffset = remember { IntOffset(0, 0) }
+    val offsetAnimatable = remember { Animatable(IntOffset(0, 0), IntOffset.VectorConverter) }
+    LaunchedEffect(pageState) {
+        when (pageState) {
+            LovePageState.Opening -> {
+                animReady = true
+                offsetAnimatable.snapTo(cardOffset)
+                offsetAnimatable.animateTo(fullOffset)
+            }
+            LovePageState.Closing -> {
+                offsetAnimatable.snapTo(fullOffset)
+                offsetAnimatable.animateTo(cardOffset)
+            }
+            else -> {}
+        }
+    }
+    if (pageState != LovePageState.Closed && animReady) {
+        Box(
+            Modifier
+                .offset { offsetAnimatable.value }
+                .clip(RoundedCornerShape(cornerSize))
+                .width(with(LocalDensity.current) { size.width.toDp() })
+                .height(with(LocalDensity.current) { size.height.toDp() })
+                .background(background)
+                .padding(paddingSize)
+        ) {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Image(
+                    painterResource(love!!.imageId),
+                    "图像",
+                    Modifier
+                        .clip(RoundedCornerShape(imageCornerSize))
+                        .fillMaxWidth()
+                        .aspectRatio(imageRatio),
+                    contentScale = ContentScale.Crop,
+                    alignment = Alignment.Center
+                )
+                Row(
+                    Modifier
+                        .offset(0.dp, titleOffsetY)
+                        .padding(titleOuterPaddingHorizontal, 0.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White)
+                        .padding(
+                            titlePaddingHorizontal,
+                            titlePaddingTop,
+                            titlePaddingHorizontal,
+                            titlePaddingBottom
+                        ),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column() {
+                        Text(
+                            love.name,
+                            color = Color.Black,
+                            fontSize = titleFontSize.sp,
+                            fontWeight = FontWeight(titleFontWeight)
+                        )
+                        Spacer(Modifier.height(titleSpacing))
+                        Text(love.category, color = Color(0xffb4b4b4), fontSize = subtitleFontSize.sp)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Box(
+                        Modifier
+                            .width(badgeWidth)
+                            .height(badgeHeight)
+                            .clip(RoundedCornerShape(badgeCornerSize))
+                            .background(badgeBackground)
+                            .padding(6.dp, 11.dp, 8.dp, 8.dp)
+                    ) {
+                        Text(
+                            love.scoreText,
+                            Modifier.align(Alignment.TopCenter),
+                            color = badgeContentColor,
+                            fontSize = 14.sp
+                        )
+                        Row(
+                            Modifier.align(Alignment.BottomCenter),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                painterResource(R.drawable.ic_star),
+                                "",
+                                Modifier.size(24.dp),
+                                tint = badgeContentColor
+                            )
+                            Text(love.score.toString(), color = badgeContentColor, fontSize = 14.sp)
+                        }
+                    }
+                }
+                Text(
+                    "TA 的评价",
+                    Modifier
+                        .offset(0.dp, titleOffsetY)
+                        .padding(14.dp, 24.dp, 14.dp, 14.dp), fontSize = 16.sp, fontWeight = FontWeight.Bold
+                )
+                Text(
+                    love.description,
+                    Modifier
+                        .offset(0.dp, titleOffsetY)
+                        .padding(14.dp, 0.dp), fontSize = 15.sp, color = Color(0xffb4b4b4)
                 )
             }
-        },
-        modifier = Modifier
-            .weight(1f)
-            .fillMaxHeight(),
-        shape = RectangleShape,
-        colors = ButtonDefaults.outlinedButtonColors(),
-        //hint 点击效果 且取消了button边框阴影
-        elevation = ButtonDefaults.elevation(0.dp)
-    ) {
-        Icon(
-            painter = painterResource(id = painterId),
-            contentDescription = contentDescription,
-            modifier = Modifier
-                .size(24.dp)
-                .weight(1f),//NavBar Icon size
-            tint = tint/*设置前置颜色*/
-        )
+            Surface(
+
+                onClick = { onPageClosing() },
+                modifier = Modifier.padding(14.dp, 32.dp),
+                color = Color.White,
+                shape = CircleShape,
+                indication = rememberRipple()
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_back),
+                    "返回",
+                    Modifier
+                        .padding(8.dp)
+                        .size(26.dp), tint = Color.Black
+                )
+            }
+            Text(
+                "详情",
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(44.dp),
+                color = Color.White,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Surface(
+                { },
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(14.dp, 32.dp),
+                color = Color.White,
+                shape = CircleShape,
+                indication = rememberRipple()
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_more),
+                    "更多",
+                    Modifier
+                        .padding(8.dp)
+                        .size(26.dp), tint = Color.Black
+                )
+            }
+        }
     }
 }
+
+
 
