@@ -20,6 +20,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -28,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CoroutineScope
 import org.devio.proj.jetpack.love.ui.theme.*
 
+@ExperimentalMaterialApi
 class MainActivity : ComponentActivity() {
     var currentLove: Love? by mutableStateOf(null)
     var currentLovePageState by mutableStateOf(LovePageState.Closed)
@@ -35,7 +37,6 @@ class MainActivity : ComponentActivity() {
     var fullSize by mutableStateOf(IntSize(0, 0))
     var cardOffset by mutableStateOf(IntOffset(0, 0))
 
-    @ExperimentalMaterialApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -49,15 +50,15 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .wrapContentHeight(Alignment.CenterVertically)
                             .wrapContentWidth(Alignment.CenterHorizontally)
-                                /*加入以下2行 否则想过类似Toast 无法看清*/
+                            /*加入以下2行 否则想过类似Toast 无法看清*/
                             .clip(RoundedCornerShape(8.dp))
                             .background(color = Color.White),
                         hostState = snackbarHostState,
-                        snackbar = { snackbarData: SnackbarData ->
+                        snackbar = { data: SnackbarData ->
                             Card {
                                 Text(
                                     modifier = Modifier.padding(16.dp),
-                                    text = snackbarData.message
+                                    text = data.message
                                 )
                             }
                         }
@@ -66,8 +67,13 @@ class MainActivity : ComponentActivity() {
                 }) {
                 Column(Modifier.onSizeChanged { fullSize = it }) {
                     //将NavBar挤下去
-                    Column(Modifier.fillMaxWidth().weight(1f).background(BackgroundWhite)
-                        .verticalScroll(rememberScrollState()))  {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .background(BackgroundWhite)
+                            .verticalScroll(rememberScrollState())
+                    ) {
                         //顶部tab
                         TopBar()
                         SearchBar()
@@ -79,6 +85,7 @@ class MainActivity : ComponentActivity() {
                                 currentLovePageState = LovePageState.Opening
                                 cardOffset = offset
                             })
+                        PlaceArea()
                     }
                     NavBar(coroutineScope, scaffoldState)
 
@@ -96,6 +103,7 @@ class MainActivity : ComponentActivity() {
 }
 
 
+
 @ExperimentalMaterialApi
 @Composable
 fun LoveDetailsPage(
@@ -109,7 +117,7 @@ fun LoveDetailsPage(
 ) {
     var animReady by remember { mutableStateOf(false) }
     val background by animateColorAsState(
-        if (pageState > LovePageState.Closed) Color(0xfff8f8f8) else Color.White,
+        if (pageState > LovePageState.Closed) BackgroundWhite else Color.White,
         finishedListener = {
             if (pageState == LovePageState.Closing) {
                 onPageClosed()
@@ -202,7 +210,11 @@ fun LoveDetailsPage(
                             fontWeight = FontWeight(titleFontWeight)
                         )
                         Spacer(Modifier.height(titleSpacing))
-                        Text(love.category, color = Color(0xffb4b4b4), fontSize = subtitleFontSize.sp)
+                        Text(
+                            love.category,
+                            color = Color(0xffb4b4b4),
+                            fontSize = subtitleFontSize.sp
+                        )
                     }
                     Spacer(Modifier.weight(1f))
                     Box(
@@ -234,10 +246,12 @@ fun LoveDetailsPage(
                     }
                 }
                 Text(
-                    "TA 的评价",
+                    "剧情简介",
                     Modifier
                         .offset(0.dp, titleOffsetY)
-                        .padding(14.dp, 24.dp, 14.dp, 14.dp), fontSize = 16.sp, fontWeight = FontWeight.Bold
+                        .padding(14.dp, 24.dp, 14.dp, 14.dp),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
                 )
                 Text(
                     love.description,
